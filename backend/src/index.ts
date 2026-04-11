@@ -63,13 +63,23 @@ app.use(errorHandler);
 // Start server
 const startServer = async () => {
   try {
-    // Connect to MongoDB if URI is provided
-    if (process.env.MONGODB_URI) {
-      await connectDB(process.env.MONGODB_URI);
+    // Determine which database to use
+    const dbType = (process.env.DB_TYPE as 'mongodb' | 'firebase' | 'local') || 'local';
+    const mongoUri = process.env.MONGODB_URI;
+
+    // Connect to database
+    if (dbType === 'firebase') {
+      await connectDB(undefined, 'firebase');
+    } else if (dbType === 'mongodb') {
+      if (mongoUri) {
+        await connectDB(mongoUri, 'mongodb');
+      } else {
+        console.log('💾 Attempting to connect to local MongoDB...');
+        await connectDB(undefined, 'mongodb');
+      }
     } else {
-      console.log(
-        '⚠️  MONGODB_URI not provided. Running in demo mode (no persistence)'
-      );
+      // Default to local file-based database
+      await connectDB(undefined, 'local');
     }
 
     app.listen(PORT, () => {
@@ -78,6 +88,7 @@ const startServer = async () => {
       );
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
       console.log(`💬 Demo chat: POST http://localhost:${PORT}/api/demo/chat`);
+      console.log(`\n📚 Documentation: See DATABASE_SETUP.md for database options`);
     });
   } catch (error) {
     console.error('Server startup failed:', error);
