@@ -4,8 +4,7 @@ import {
   interviewAgentService,
   InterviewContext,
 } from '../services/interviewAgentService';
-import { Message } from '../db/Message';
-import { Conversation } from '../db/Conversation';
+import { MessageRepo, ConversationRepo } from '../db/repositories';
 import { AuthRequest } from '../middleware/auth';
 
 const router = Router();
@@ -52,22 +51,20 @@ router.post('/start', async (req: AuthRequest, res: Response) => {
     }
 
     // Save conversation
-    const conversation = new Conversation({
+    const conversation = await ConversationRepo.create({
       conversationId,
       userId,
       title: `${mode.charAt(0).toUpperCase() + mode.slice(1)} - ${topic || role || 'Session'}`,
       context,
     });
-    await conversation.save();
 
     // Save initial message
-    const assistantMsg = new Message({
+    await MessageRepo.create({
       conversationId,
       userId,
       role: 'assistant',
-      content: response.content,
+      content: response.content || '',
     });
-    await assistantMsg.save();
 
     res.json({
       success: true,
@@ -97,7 +94,7 @@ router.post('/answer', async (req: AuthRequest, res: Response) => {
     }
 
     // Get conversation and context
-    const conversation = await Conversation.findOne({ conversationId });
+    const conversation = await ConversationRepo.findByConversationId(conversationId);
     if (!conversation) {
       return res.status(404).json({ error: 'Conversation not found' });
     }
@@ -105,7 +102,7 @@ router.post('/answer', async (req: AuthRequest, res: Response) => {
     const context = conversation.context as InterviewContext;
 
     // Get previous messages
-    const previousMessages = await Message.find({ conversationId }).sort({ createdAt: 1 });
+    const previousMessages = await MessageRepo.findByConversationId(conversationId);
 
     const history = previousMessages.map((msg) => ({
       role: msg.role,
@@ -113,13 +110,12 @@ router.post('/answer', async (req: AuthRequest, res: Response) => {
     }));
 
     // Save user answer
-    const userMsg = new Message({
+    await MessageRepo.create({
       conversationId,
       userId,
       role: 'user',
       content: answer,
     });
-    await userMsg.save();
 
     // Get evaluation
     const evaluation = await interviewAgentService.evaluateAnswer(answer, context, history);
@@ -129,20 +125,19 @@ router.post('/answer', async (req: AuthRequest, res: Response) => {
     }
 
     // Save assistant feedback
-    const assistantMsg = new Message({
+    await MessageRepo.create({
       conversationId,
       userId,
       role: 'assistant',
-      content: evaluation.content,
+      content: evaluation.content || '',
     });
-    await assistantMsg.save();
 
     // Increment question count
     if (context.currentQuestion) {
       context.currentQuestion++;
     }
-    conversation.context = context;
-    await conversation.save();
+    const updatedContext = { ...conversation, context };
+    await ConversationRepo.updateById(conversation._id!, updatedContext);
 
     res.json({
       success: true,
@@ -185,7 +180,7 @@ router.post('/analyze-resume', async (req: AuthRequest, res: Response) => {
     }
 
     // Save conversation
-    const conversation = new Conversation({
+    await ConversationRepo.create({
       conversationId,
       userId,
       title: 'Resume Analysis',
@@ -194,24 +189,21 @@ router.post('/analyze-resume', async (req: AuthRequest, res: Response) => {
         difficulty: 'N/A',
       },
     });
-    await conversation.save();
 
     // Save messages
-    const userMsg = new Message({
+    await MessageRepo.create({
       conversationId,
       userId,
       role: 'user',
       content: `Please analyze my resume:\n\n${resumeText}`,
     });
-    await userMsg.save();
 
-    const assistantMsg = new Message({
+    await MessageRepo.create({
       conversationId,
       userId,
       role: 'assistant',
-      content: analysis.content,
+      content: analysis.content || '',
     });
-    await assistantMsg.save();
 
     res.json({
       success: true,
@@ -234,8 +226,8 @@ router.get('/history/:conversationId', async (req: AuthRequest, res: Response) =
   try {
     const { conversationId } = req.params;
 
-    const messages = await Message.find({ conversationId }).sort({ createdAt: 1 });
-    const conversation = await Conversation.findOne({ conversationId });
+    const messages = await MessageRepo.findByConversationId(conversationId);
+    const conversation = await ConversationRepo.findByConversationId(conversationId);
 
     if (!messages.length) {
       return res.status(404).json({ error: 'Conversation not found' });

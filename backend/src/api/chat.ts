@@ -1,8 +1,7 @@
 import { Router, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { geminiService } from '../services/geminiService';
-import { Message } from '../db/Message';
-import { Conversation } from '../db/Conversation';
+import { MessageRepo, ConversationRepo } from '../db/repositories';
 import { AuthRequest } from '../middleware/auth';
 
 const router = Router();
@@ -23,10 +22,8 @@ router.post('/chat', async (req: AuthRequest, res: Response) => {
     // Generate conversationId if not provided
     const cid = conversationId || uuidv4();
 
-    // Fetch previous messages
-    const previousMessages = await Message.find({ conversationId: cid }).sort({
-      createdAt: 1,
-    });
+    // Fetch previous messages using unified repository
+    const previousMessages = await MessageRepo.findByConversationId(cid);
 
     // Build message history for Gemini
     const history = previousMessages.map((msg) => ({
@@ -37,14 +34,13 @@ router.post('/chat', async (req: AuthRequest, res: Response) => {
     // Add current user message
     history.push({ role: 'user', content: message });
 
-    // Save user message to DB
-    const userMsg = new Message({
+    // Save user message to DB using unified repository
+    await MessageRepo.create({
       conversationId: cid,
       userId,
       role: 'user',
       content: message,
     });
-    await userMsg.save();
 
     // Get response from Gemini
     const geminiResponse = await geminiService.chat(history);
@@ -54,24 +50,22 @@ router.post('/chat', async (req: AuthRequest, res: Response) => {
     }
 
     // Save assistant response to DB
-    const assistantMsg = new Message({
+    await MessageRepo.create({
       conversationId: cid,
       userId,
       role: 'assistant',
-      content: geminiResponse.content,
+      content: geminiResponse.content || '',
     });
-    await assistantMsg.save();
 
-    // Update or create conversation
-    let conversation = await Conversation.findOne({ conversationId: cid });
+    // Update or create conversation using unified repository
+    let conversation = await ConversationRepo.findByConversationId(cid);
     if (!conversation) {
-      conversation = new Conversation({
+      conversation = await ConversationRepo.create({
         conversationId: cid,
         userId,
         title: message.substring(0, 50).concat('...'),
         context: {},
       });
-      await conversation.save();
     }
 
     res.json({
@@ -104,9 +98,7 @@ router.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     const cid = conversationId || uuidv4();
 
     // Fetch previous messages
-    const previousMessages = await Message.find({ conversationId: cid }).sort({
-      createdAt: 1,
-    });
+    const previousMessages = await MessageRepo.findByConversationId(cid);
 
     // Build message history for Gemini
     const history = previousMessages.map((msg) => ({
@@ -118,13 +110,12 @@ router.post('/chat/stream', async (req: AuthRequest, res: Response) => {
     history.push({ role: 'user', content: message });
 
     // Save user message to DB
-    const userMsg = new Message({
+    await MessageRepo.create({
       conversationId: cid,
       userId,
       role: 'user',
       content: message,
     });
-    await userMsg.save();
 
     // Set up SSE headers
     res.setHeader('Content-Type', 'text/event-stream');
@@ -141,24 +132,22 @@ router.post('/chat/stream', async (req: AuthRequest, res: Response) => {
       }
 
       // Save complete assistant response to DB
-      const assistantMsg = new Message({
+      await MessageRepo.create({
         conversationId: cid,
         userId,
         role: 'assistant',
         content: fullResponse,
       });
-      await assistantMsg.save();
 
       // Update or create conversation
-      let conversation = await Conversation.findOne({ conversationId: cid });
+      let conversation = await ConversationRepo.findByConversationId(cid);
       if (!conversation) {
-        conversation = new Conversation({
+        conversation = await ConversationRepo.create({
           conversationId: cid,
           userId,
           title: message.substring(0, 50).concat('...'),
           context: {},
         });
-        await conversation.save();
       }
 
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
@@ -186,9 +175,7 @@ router.get('/history/:conversationId', async (req: AuthRequest, res: Response) =
   try {
     const { conversationId } = req.params;
 
-    const messages = await Message.find({ conversationId }).sort({
-      createdAt: 1,
-    });
+    const messages = await MessageRepo.findByConversationId(conversationId);
 
     res.json(messages);
   } catch (error) {

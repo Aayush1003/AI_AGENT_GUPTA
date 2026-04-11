@@ -8,3 +8,12 @@ build/
 .vscode/
 .idea/
 coverage/
+
+# Local database files
+.local-db/
+backend/.local-db/
+
+# Firebase credentials (NEVER commit!)
+firebase-key.json
+backend/firebase-key.json
+*.json.example
