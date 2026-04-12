@@ -32,7 +32,30 @@ npm start
 
 Then visit **http://localhost:3000** and chat with your AI agent!
 
-## 📦 What's Included
+## � Deployment
+
+**Deploy to production with GitHub Actions!**
+
+Automated deployment using GitHub Actions:
+- Backend → Railway (free tier)
+- Frontend → Vercel (free tier)
+- Database → Firebase Firestore
+
+### Quick Deployment Steps
+
+1. **Follow the deployment guide**: [DEPLOYMENT_SETUP.md](DEPLOYMENT_SETUP.md)
+2. **Set up 10 GitHub Secrets** (API keys, tokens)
+3. **Connect Railway (backend) and Vercel (frontend)**
+4. **Push to main branch** → workflows auto-deploy everything
+
+**Checklist**: Use [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) to track your progress.
+
+All workflows defined in `.github/workflows/`:
+- `tests.yml` - Lints and validates builds (PR & push)
+- `backend-deploy.yml` - Deploys backend to Railway
+- `frontend-deploy.yml` - Deploys frontend to Vercel
+
+## �📦 What's Included
 
 ### Phase 1: Foundation ✅ (Complete)
 - ✅ React UI with real-time chat
@@ -58,7 +81,12 @@ Then visit **http://localhost:3000** and chat with your AI agent!
 | Document | Purpose |
 |----------|---------|
 | [SETUP.md](SETUP.md) | Installation, API docs, troubleshooting |
+| [DEPLOYMENT_SETUP.md](DEPLOYMENT_SETUP.md) | Complete GitHub Actions + Railway + Vercel setup guide |
+| [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) | Step-by-step deployment tracking checklist |
 | [AGENT_ARCHITECTURE.md](AGENT_ARCHITECTURE.md) | Full design & implementation plan |
+| [DATABASE_SETUP.md](DATABASE_SETUP.md) | Local, Firebase, or MongoDB configuration |
+| [FIREBASE_SETUP.md](FIREBASE_SETUP.md) | Firebase Firestore setup for production |
+| [INTERVIEW_PREP_GUIDE.md](INTERVIEW_PREP_GUIDE.md) | Interview feature documentation |
 
 ## 🏗️ Tech Stack
 
